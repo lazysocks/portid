@@ -1,8 +1,10 @@
 #!/usr/bin/env python 
 
 from asyncore import write
+from audioop import add
 import subprocess as sub
-import re, csv
+import re, csv, psutil, socket, yaml
+import netifaces
 from sys import stdout
 from pathlib import Path
 
@@ -13,6 +15,12 @@ def get_string(line, keyword):
     str = str.replace(':', '')
     str = str.strip()
     return str
+
+class settings:
+    def __init__(self):
+        with open('settings.yml', 'r') as file:
+            settings = yaml.load(file, Loader=yaml.FullLoader)
+            self.port1 = settings['known_interfaces']['port1']['mac address']
 
 
 def getFields(p):
@@ -46,6 +54,30 @@ def getFields(p):
             dict['Native VLAN'] = vlan_id
     return dict
 
+
+def getInterfaces(broadcast):
+    good_interfaces = []
+    interfaces = netifaces.interfaces()
+    for interface in interfaces:
+        addrs = netifaces.ifaddresses(interface)
+        ipv4 = addrs[netifaces.AF_INET]
+        for ip in ipv4:
+            if broadcast in ip:
+                good_interfaces.append(interface)
+    return good_interfaces
+
+def getMAC(interfaces):
+    mac_addresses = []
+    for interface in interfaces:
+        addr = netifaces.ifaddresses(interface)
+        link = addr[netifaces.AF_LINK]
+        for mac in link:
+            if 'addr' in mac:
+                if len(mac['addr']) == 17:
+                    mac_addresses.append(mac['addr'])
+
+
+
 def write_csv(dict):
     fields = ['Port ID', 'Mac Address', 'IP Address', 'Native VLAN', 'Platform', 'System Name']
 
@@ -71,9 +103,9 @@ def redirect(interface):
         data.append(row.strip())
     return data
      
+interfaces = getInterfaces('172.16.0.255')
 
-p = redirect('ens18')
-
-data = getFields(p)
-
-write_csv(data)
+for interface in interfaces:
+    p = redirect(interface)
+    data = getFields(p)
+    write_csv(data)
