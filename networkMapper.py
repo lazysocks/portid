@@ -21,6 +21,9 @@ class settings:
         with open('settings.yml', 'r') as file:
             settings = yaml.load(file, Loader=yaml.FullLoader)
             self.port1 = settings['known_interfaces']['port1']['mac address']
+            self.port2 = settings['known_interfaces']['port2']['mac address']
+            self.port3 = settings['known_interfaces']['port3']['mac address']
+            self.port4 = settings['known_interfaces']['port4']['mac address']
 
 
 def getFields(p):
@@ -43,7 +46,7 @@ def getFields(p):
         #Get Port ID
         if re.search(r'Port-ID', line):
             port_id = get_string(line, 'bytes')
-            dict['Port ID'] = port_id
+            dict['Switch Port ID'] = port_id
         #Get Platform
         if re.search(r'Platform', line):
             platform = get_string(line, 'bytes')
@@ -62,9 +65,12 @@ def getInterfaces(broadcast):
         addrs = netifaces.ifaddresses(interface)
         ipv4 = addrs[netifaces.AF_INET]
         for ip in ipv4:
-            if broadcast in ip:
-                good_interfaces.append(interface)
+            if 'broadcast' in ip:
+                if broadcast in ip['broadcast']:
+                    good_interfaces.append(interface)
     return good_interfaces
+
+   
 
 def getMAC(interfaces):
     mac_addresses = []
@@ -79,7 +85,7 @@ def getMAC(interfaces):
 
 
 def write_csv(dict):
-    fields = ['Port ID', 'Mac Address', 'IP Address', 'Native VLAN', 'Platform', 'System Name']
+    fields = ['Switch Port ID', 'Mac Address', 'IP Address', 'Native VLAN', 'Platform', 'System Name']
 
     path = Path('test.csv')
     if path.is_file():
