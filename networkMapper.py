@@ -1,13 +1,17 @@
 #!/usr/bin/env python 
 
-from asyncore import write
+# %%
+from asyncore import read, write
 from audioop import add
+from code import interact
+import py_compile
 import subprocess as sub
 import re, csv, psutil, socket, yaml
 import netifaces
 from sys import stdout
 from pathlib import Path
 
+# %%
 def get_string(line, keyword):
     before_keyword, keyword, after_keyword = line.partition(keyword)
     str = after_keyword
@@ -16,18 +20,26 @@ def get_string(line, keyword):
     str = str.strip()
     return str
 
-class settings:
+# %%
+class load_settings:
     def __init__(self):
         with open('settings.yml', 'r') as file:
             settings = yaml.load(file, Loader=yaml.FullLoader)
-            self.port1 = settings['known_interfaces']['port1']['mac address']
-            self.port2 = settings['known_interfaces']['port2']['mac address']
-            self.port3 = settings['known_interfaces']['port3']['mac address']
-            self.port4 = settings['known_interfaces']['port4']['mac address']
+            self.port1 = settings['known_interfaces']['port 1']['mac address']
+            self.port2 = settings['known_interfaces']['port 2']['mac address']
+            self.port3 = settings['known_interfaces']['port 3']['mac address']
+            self.port4 = settings['known_interfaces']['port 4']['mac address']
+            self.macs = [self.port1, self.port2, self.port3, self.port4]
+
+        
+            
+            
 
 
-def getFields(p):
+# %%
+def getFields(p, physical_port):
     dict = {}
+    dict['Physical Port'] = physical_port
     for line in p:
         #Get System Name
         if re.search(r'(System Name)', line):
@@ -57,35 +69,48 @@ def getFields(p):
             dict['Native VLAN'] = vlan_id
     return dict
 
-
-def getInterfaces(broadcast):
+# %%
+def getInterfaces(broadcast, mac_list):
     good_interfaces = []
     interfaces = netifaces.interfaces()
     for interface in interfaces:
         addrs = netifaces.ifaddresses(interface)
         ipv4 = addrs[netifaces.AF_INET]
+        macs = addrs[netifaces.AF_LINK]
         for ip in ipv4:
             if 'broadcast' in ip:
                 if broadcast in ip['broadcast']:
-                    good_interfaces.append(interface)
+                    for mac in macs:
+                        if 'addr' in mac and mac['addr'] in mac_list:
+                            good_interfaces.append(interface)
     return good_interfaces
 
    
+# %%
+def getMAC(interface):
+    addr = netifaces.ifaddresses(interface)
+    link = addr[netifaces.AF_LINK]
+    for address in link:
+        if 'addr' in address and len(address['addr']) == 17:
+            return address['addr']
+# %%
+def detectPort(mac, settings):
+    if mac == settings.port1:
+        nic = 'Port 1'
+    if mac == settings.port2:
+        nic = 'Port 2'
+    if mac == settings.port3:
+        nic = 'Port 3'
+    if mac == settings.port4:
+        nic = 'Port 4'
+    return nic
+        
+           
 
-def getMAC(interfaces):
-    mac_addresses = []
-    for interface in interfaces:
-        addr = netifaces.ifaddresses(interface)
-        link = addr[netifaces.AF_LINK]
-        for mac in link:
-            if 'addr' in mac:
-                if len(mac['addr']) == 17:
-                    mac_addresses.append(mac['addr'])
 
-
-
+# %%
 def write_csv(dict):
-    fields = ['Switch Port ID', 'Mac Address', 'IP Address', 'Native VLAN', 'Platform', 'System Name']
+    fields = ['Switch Port ID', 'Mac Address', 'IP Address', 'Native VLAN', 'Platform', 'System Name', 'Physical Port']
 
     path = Path('test.csv')
     if path.is_file():
@@ -98,7 +123,7 @@ def write_csv(dict):
             writer.writeheader()
             writer.writerow(dict)
 
-    
+# %%    
 def redirect(interface):
     data = []
     
@@ -108,10 +133,18 @@ def redirect(interface):
         row = row.decode('utf-8')
         data.append(row.strip())
     return data
-     
-interfaces = getInterfaces('172.16.0.255')
+
+# %% 
+settings = load_settings()
+interfaces = getInterfaces('172.16.0.255', settings.macs)
 
 for interface in interfaces:
-    p = redirect(interface)
-    data = getFields(p)
-    write_csv(data)
+    mac = getMAC(interface)
+    if mac in settings.macs:
+        port_num = detectPort(mac, settings)
+        physical_port = input(f'Please enter the physical port attached to {port_num} with MAC {mac}: ')
+        p = redirect(interface)
+        data = getFields(p, physical_port)
+        write_csv(data)
+
+# %%

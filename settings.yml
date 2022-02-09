@@ -3,5 +3,11 @@
   known_interfaces:
     port 1:
       mac address: '0e:a5:71:4a:f8:3f'
+    port 2:
+      mac address: '0e:a5:71:4a:f8:3c'
+    port 3:
+      mac address: '0e:a5:71:4a:f8:3d'
+    port 4:
+      mac address: '0e:a5:71:4a:f8:3b'
     
     
