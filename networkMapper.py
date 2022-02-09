@@ -25,6 +25,7 @@ class load_settings:
     def __init__(self):
         with open('settings.yml', 'r') as file:
             settings = yaml.load(file, Loader=yaml.FullLoader)
+            self.broadcast = settings['broadcast']
             self.port1 = settings['known_interfaces']['port 1']['mac address']
             self.port2 = settings['known_interfaces']['port 2']['mac address']
             self.port3 = settings['known_interfaces']['port 3']['mac address']
@@ -136,7 +137,7 @@ def redirect(interface):
 
 # %% 
 settings = load_settings()
-interfaces = getInterfaces('172.16.0.255', settings.macs)
+interfaces = getInterfaces(settings.broadcast, settings.macs)
 
 for interface in interfaces:
     mac = getMAC(interface)
