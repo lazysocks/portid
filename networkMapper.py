@@ -76,9 +76,9 @@ def getInterfaces(broadcast, mac_list):
     for interface in interfaces:
         addrs = netifaces.ifaddresses(interface)
         ipv4 = addrs[netifaces.AF_INET]
-        macs = addrs[netifaces.AF_LINK]
         for ip in ipv4:
             if 'broadcast' in ip:
+                macs = addrs[netifaces.AF_LINK]
                 if broadcast in ip['broadcast']:
                     for mac in macs:
                         if 'addr' in mac and mac['addr'] in mac_list:
