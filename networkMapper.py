@@ -76,14 +76,15 @@ def getInterfaces(broadcast, mac_list):
     interfaces = netifaces.interfaces()
     for interface in interfaces:
         addrs = netifaces.ifaddresses(interface)
-        ipv4 = addrs[netifaces.AF_INET]
-        for ip in ipv4:
-            if 'broadcast' in ip:
-                macs = addrs[netifaces.AF_LINK]
-                if broadcast in ip['broadcast']:
-                    for mac in macs:
-                        if 'addr' in mac and mac['addr'] in mac_list:
-                            good_interfaces.append(interface)
+        if netifaces.AF_INET in addrs:
+            ipv4 = addrs[netifaces.AF_INET]
+            for ip in ipv4:
+                if 'broadcast' in ip:
+                    macs = addrs[netifaces.AF_LINK]
+                    if broadcast in ip['broadcast']:
+                        for mac in macs:
+                            if 'addr' in mac and mac['addr'] in mac_list:
+                                good_interfaces.append(interface)
     return good_interfaces
 
    
