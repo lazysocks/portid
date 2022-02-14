@@ -7,6 +7,7 @@ from code import interact
 import py_compile
 import subprocess as sub
 import re, csv, psutil, socket, yaml
+from psutil import Popen
 import netifaces
 from sys import stdout
 from pathlib import Path
@@ -25,7 +26,6 @@ class load_settings:
     def __init__(self):
         with open('settings.yml', 'r') as file:
             settings = yaml.load(file, Loader=yaml.FullLoader)
-            self.broadcast = settings['broadcast']
             self.port1 = settings['known_interfaces']['port 1']['mac address']
             self.port2 = settings['known_interfaces']['port 2']['mac address']
             self.port3 = settings['known_interfaces']['port 3']['mac address']
@@ -71,7 +71,7 @@ def getFields(p, physical_port):
     return dict
 
 # %%
-def getInterfaces(broadcast, mac_list):
+def getInterfaces(mac_list):
     good_interfaces = []
     interfaces = netifaces.interfaces()
     for interface in interfaces:
@@ -81,10 +81,9 @@ def getInterfaces(broadcast, mac_list):
             for ip in ipv4:
                 if 'broadcast' in ip:
                     macs = addrs[netifaces.AF_LINK]
-                    if broadcast in ip['broadcast']:
-                        for mac in macs:
-                            if 'addr' in mac and mac['addr'] in mac_list:
-                                good_interfaces.append(interface)
+                    for mac in macs:
+                        if 'addr' in mac and mac['addr'] in mac_list:
+                            good_interfaces.append(interface)
     return good_interfaces
 
    
@@ -136,9 +135,26 @@ def redirect(interface):
         data.append(row.strip())
     return data
 
+# %%
+def listen_for_cd(interfaces, macs, settings):
+    cmds = []
+    for interface in interfaces:
+        mac = getMAC(interface)
+        if mac in macs:
+            port_num = detectPort(mac, settings)
+            physical_port = input(f'Please enter the physical port attached to {port_num} with MAC {mac}: ')
+            print(f'Listening for CDP packet on {port_num}')
+            cmd = f'sudo tcpdump -nn -v -i {interface} -s 1500 -c 1 ether[20:2] == 0x200'
+            cmds.append(cmd)
+        procs = [ Popen(i, shell=True) for i in cmds]
+        for p in procs:
+            p.wait()
+            data = getFields(p, physical_port)
+            write_csv(data)
+
 # %% 
 settings = load_settings()
-interfaces = getInterfaces(settings.broadcast, settings.macs)
+interfaces = getInterfaces(settings.macs)
 
 for interface in interfaces:
     mac = getMAC(interface)
