@@ -4,22 +4,11 @@
 from asyncore import read, write
 from audioop import add
 from code import interact
-import py_compile
 import subprocess as sub
-import re, csv, psutil, socket, yaml
+import re, csv, yaml
 from psutil import Popen
 import netifaces
-from sys import stdout
 from pathlib import Path
-
-# %%
-def get_string(line, keyword):
-    before_keyword, keyword, after_keyword = line.partition(keyword)
-    str = after_keyword
-    str = str.replace('\'','')
-    str = str.replace(':', '')
-    str = str.strip()
-    return str
 
 # %%
 class load_settings:
@@ -32,9 +21,44 @@ class load_settings:
             self.port4 = settings['known_interfaces']['port 4']['mac address']
             self.macs = [self.port1, self.port2, self.port3, self.port4]
 
-        
+# %%
+class Interface:
+
+    def __init__(self, name, system_name='Unknown'):
+        self.name = str(name)
+        self.system_name = system_name
+        self.mac = self.device_mac()
+        self.nic = self.detect_port()
+           
+    # %%
+    def device_mac(self):
+        addr = netifaces.ifaddresses(self.name)
+        link = addr[netifaces.AF_LINK]
+        for address in link:
+            if 'addr' in address and len(address['addr']) == 17:
+                return address['addr']
+    # %%
+    def detect_port(self, settings):
+        if self.mac == settings.port1:
+            nic = 'Port 1'
+        if self.mac == settings.port2:
+            nic = 'Port 2'
+        if self.mac == settings.port3:
+            nic = 'Port 3'
+        if self.mac == settings.port4:
+            nic = 'Port 4'
             
-            
+
+# %%
+def get_string(line, keyword):
+    before_keyword, keyword, after_keyword = line.partition(keyword)
+    str = after_keyword
+    str = str.replace('\'','')
+    str = str.replace(':', '')
+    str = str.strip()
+    return str
+
+
 
 
 # %%
@@ -87,24 +111,8 @@ def getInterfaces(mac_list):
     return good_interfaces
 
    
-# %%
-def getMAC(interface):
-    addr = netifaces.ifaddresses(interface)
-    link = addr[netifaces.AF_LINK]
-    for address in link:
-        if 'addr' in address and len(address['addr']) == 17:
-            return address['addr']
-# %%
-def detectPort(mac, settings):
-    if mac == settings.port1:
-        nic = 'Port 1'
-    if mac == settings.port2:
-        nic = 'Port 2'
-    if mac == settings.port3:
-        nic = 'Port 3'
-    if mac == settings.port4:
-        nic = 'Port 4'
-    return nic
+
+
         
            
 
@@ -157,10 +165,14 @@ settings = load_settings()
 interfaces = getInterfaces(settings.macs)
 
 for interface in interfaces:
+    ready = []
     mac = getMAC(interface)
     if mac in settings.macs:
         port_num = detectPort(mac, settings)
         physical_port = input(f'Please enter the physical port attached to {port_num} with MAC {mac}: ')
+
+
+
         p = redirect(interface)
         data = getFields(p, physical_port)
         write_csv(data)
