@@ -10,6 +10,8 @@ from psutil import Popen
 import netifaces
 from pathlib import Path
 
+from zmq import device
+
 # %%
 class load_settings:
     def __init__(self):
@@ -27,27 +29,31 @@ class Interface:
     def __init__(self, name, system_name='Unknown'):
         self.name = str(name)
         self.system_name = system_name
-        self.mac = self.device_mac()
-        self.nic = self.detect_port()
-           
-    # %%
-    def device_mac(self):
-        addr = netifaces.ifaddresses(self.name)
+        self.device_mac(self.name)
+        self.detect_port()
+    
+    #Get MAC address of interface
+    def device_mac(self, interface):
+        addr = netifaces.ifaddresses(interface)
         link = addr[netifaces.AF_LINK]
         for address in link:
             if 'addr' in address and len(address['addr']) == 17:
-                return address['addr']
-    # %%
-    def detect_port(self, settings):
+                self.mac = address['addr']
+                
+    #Get Port Number Asisgned to interface in settings file    
+    def detect_port(self):
         if self.mac == settings.port1:
-            nic = 'Port 1'
+            self.nic = 'Port 1'
         if self.mac == settings.port2:
-            nic = 'Port 2'
+            self.nic = 'Port 2'
         if self.mac == settings.port3:
-            nic = 'Port 3'
+            self.nic = 'Port 3'
         if self.mac == settings.port4:
-            nic = 'Port 4'
-            
+            self.nic = 'Port 4'
+
+    def get_physical_port(self):
+        self.physical_port = input(f'Please enter the physical port attached to {self.nic} with MAC {self.mac}: ') 
+
 
 # %%
 def get_string(line, keyword):
