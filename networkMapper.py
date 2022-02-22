@@ -10,95 +10,6 @@ from psutil import Popen
 import netifaces
 from pathlib import Path
 
-from zmq import device
-
-# %%
-class load_settings:
-    def __init__(self):
-        with open('settings.yml', 'r') as file:
-            settings = yaml.load(file, Loader=yaml.FullLoader)
-            self.port1 = settings['known_interfaces']['port 1']['mac address']
-            self.port2 = settings['known_interfaces']['port 2']['mac address']
-            self.port3 = settings['known_interfaces']['port 3']['mac address']
-            self.port4 = settings['known_interfaces']['port 4']['mac address']
-            self.macs = [self.port1, self.port2, self.port3, self.port4]
-
-# %%
-class Interface:
-
-    def __init__(self, name, system_name='Unknown'):
-        self.name = str(name)
-        self.system_name = system_name
-        self.device_mac(self.name)
-        self.detect_port()
-    
-    #Get MAC address of interface
-    def device_mac(self, interface):
-        addr = netifaces.ifaddresses(interface)
-        link = addr[netifaces.AF_LINK]
-        for address in link:
-            if 'addr' in address and len(address['addr']) == 17:
-                self.mac = address['addr']
-                
-    #Get Port Number Asisgned to interface in settings file    
-    def detect_port(self):
-        if self.mac == settings.port1:
-            self.nic = 'Port 1'
-        if self.mac == settings.port2:
-            self.nic = 'Port 2'
-        if self.mac == settings.port3:
-            self.nic = 'Port 3'
-        if self.mac == settings.port4:
-            self.nic = 'Port 4'
-
-    def get_physical_port(self):
-        self.physical_port = input(f'Please enter the physical port attached to {self.nic} with MAC {self.mac}: ') 
-
-
-# %%
-def get_string(line, keyword):
-    before_keyword, keyword, after_keyword = line.partition(keyword)
-    str = after_keyword
-    str = str.replace('\'','')
-    str = str.replace(':', '')
-    str = str.strip()
-    return str
-
-
-
-
-# %%
-def getFields(p, physical_port):
-    dict = {}
-    dict['Physical Port'] = physical_port
-    for line in p:
-        #Get System Name
-        if re.search(r'(System Name)', line):
-            system_name = get_string(line, 'bytes')
-            dict['System Name'] = system_name
-               
-        #Get Switch MAC
-        if re.search(r'Device-ID', line):
-            mac_address = get_string(line, 'bytes')
-            dict['Mac Address'] = mac_address
-        
-        #Get IP Address
-        if re.search(r'Address',line):
-            ip_address = get_string(line, 'bytes')
-            dict['IP Address'] = ip_address
-        #Get Port ID
-        if re.search(r'Port-ID', line):
-            port_id = get_string(line, 'bytes')
-            dict['Switch Port ID'] = port_id
-        #Get Platform
-        if re.search(r'Platform', line):
-            platform = get_string(line, 'bytes')
-            dict['Platform'] = platform
-        #Get VLAN
-        if re.search(r'Native VLAN ID', line):
-            vlan_id = get_string(line, 'bytes')
-            dict['Native VLAN'] = vlan_id
-    return dict
 
 # %%
 def getInterfaces(mac_list):
@@ -116,13 +27,6 @@ def getInterfaces(mac_list):
                             good_interfaces.append(interface)
     return good_interfaces
 
-   
-
-
-        
-           
-
-
 # %%
 def write_csv(dict):
     fields = ['Switch Port ID', 'Mac Address', 'IP Address', 'Native VLAN', 'Platform', 'System Name', 'Physical Port']
@@ -138,49 +42,116 @@ def write_csv(dict):
             writer.writeheader()
             writer.writerow(dict)
 
-# %%    
-def redirect(interface):
-    data = []
-    
-    p = sub.Popen(('sudo', 'tcpdump', '-nn', '-v', '-i',interface, '-s 1500', '-c 1', 'ether[20:2] == 0x2000' ), stdout=sub.PIPE)
-    for row in iter(p.stdout.readline, b''):
-        row = row.rstrip()
-        row = row.decode('utf-8')
-        data.append(row.strip())
-    return data
+# %%
+class load_settings:
+    def __init__(self):
+        with open('settings.yml', 'r') as file:
+            settings = yaml.load(file, Loader=yaml.FullLoader)
+            self.port1 = settings['known_interfaces']['port 1']['mac address']
+            self.port2 = settings['known_interfaces']['port 2']['mac address']
+            self.port3 = settings['known_interfaces']['port 3']['mac address']
+            self.port4 = settings['known_interfaces']['port 4']['mac address']
+            self.macs = [self.port1, self.port2, self.port3, self.port4]
 
 # %%
-def listen_for_cd(interfaces, macs, settings):
-    cmds = []
-    for interface in interfaces:
-        mac = getMAC(interface)
-        if mac in macs:
-            port_num = detectPort(mac, settings)
-            physical_port = input(f'Please enter the physical port attached to {port_num} with MAC {mac}: ')
-            print(f'Listening for CDP packet on {port_num}')
-            cmd = f'sudo tcpdump -nn -v -i {interface} -s 1500 -c 1 ether[20:2] == 0x200'
-            cmds.append(cmd)
-        procs = [ Popen(i, shell=True) for i in cmds]
-        for p in procs:
-            p.wait()
-            data = getFields(p, physical_port)
-            write_csv(data)
+class Interface:
+
+    def __init__(self, name, settings, system_name='Unknown'):
+        self.name = str(name)
+        self.system_name = system_name
+        self.settings = settings
+        self.device_mac(self.name)
+        self.detect_port()
+                    
+    #Get MAC address of interface
+    def device_mac(self, interface):
+        addr = netifaces.ifaddresses(interface)
+        link = addr[netifaces.AF_LINK]
+        for address in link:
+            if 'addr' in address and len(address['addr']) == 17:
+                self.mac = address['addr']
+                
+    #Get Port Number Asisgned to interface in settings file    
+    def detect_port(self):
+        if self.mac == self.settings.port1:
+            self.nic = 'Port 1'
+        if self.mac == self.settings.port2:
+            self.nic = 'Port 2'
+        if self.mac == self.settings.port3:
+            self.nic = 'Port 3'
+        if self.mac == self.settings.port4:
+            self.nic = 'Port 4'
+
+    #Prompt for physical port interface is connected to at patch panel
+    def get_physical_port(self):
+        self.physical_port = input(f'Please enter the physical port attached to {self.nic} with MAC {self.mac}: ') 
+
+    def get_string(self, line):
+        keyword = 'bytes'
+        before_keyword, keyword, after_keyword = line.partition(keyword)
+        str = after_keyword
+        str = str.replace('\'','')
+        str = str.replace(':', '')
+        str = str.strip()
+        return str
+
+    def get_data(self, interface):
+        d = []
+        p = sub.Popen(('sudo', 'tcpdump', '-nn', '-v', '-i', interface, '-s 1500', '-c 1', 'ether[20:2] == 0x2000' ), stdout=sub.PIPE)
+        for row in iter(p.stdout.readline, b''):
+            row = row.rstrip()
+            row = row.decode('utf-8')
+            d.append(row.strip())
+        self.data = d
+
+    def retrieve_data(self, data):
+          
+        for line in data:
+            #Get System Name
+            if re.search(r'(System Name)', line):
+                self.system_name = self.get_string(line)
+            #Get Switch MAC
+            if re.search(r'(Device-ID)', line):
+               self.switch_mac = self.get_string(line)
+            #Get IP Address
+            if re.search(r'(Address)', line):
+                self.ip_address = self.get_string(line)
+            #Get Port ID
+            if re.search(r'(Port-ID)', line):
+                self.port_id = self.get_string(line)
+            #Get Platform
+            if re.search(r'(Platform)', line):
+                self.platform = self.get_string(line)
+            #Get VLAN
+            if re.search(r'(Native VLAN ID)', line):
+                self.vlan_id = self.get_string(line)
+
+    def package_data(self):
+        dict = {'Switch Port  ID': self.port_id, 'Mac Address': self.switch_mac, 'Switch IP Address': self.ip_address,'Native VLAN': self.vlan_id, 
+        'Platform': self.platform, 'System Name': self.system_name, 'Physical Port': self.physical_port}
+        return dict
+
+
+
+   
+
+
+        
+           
+
+
+
 
 # %% 
-settings = load_settings()
-interfaces = getInterfaces(settings.macs)
-
-for interface in interfaces:
-    ready = []
-    mac = getMAC(interface)
-    if mac in settings.macs:
-        port_num = detectPort(mac, settings)
-        physical_port = input(f'Please enter the physical port attached to {port_num} with MAC {mac}: ')
-
-
-
-        p = redirect(interface)
-        data = getFields(p, physical_port)
-        write_csv(data)
+def run_program():
+    settings = load_settings()
+    int = Interface('ens18', settings)
+    int.get_physical_port()
+    int.get_data(int.name)
+    int.retrieve_data(int.data)
+    p = int.package_data()
+    print(p)
 
 # %%
+if __name__ == "__main__":
+    run_program()
