@@ -29,7 +29,7 @@ def getInterfaces(mac_list):
 
 # %%
 def write_csv(dict):
-    fields = ['Switch Port ID', 'Mac Address', 'IP Address', 'Native VLAN', 'Platform', 'System Name', 'Physical Port']
+    fields = ['Switch Port ID', 'Mac Address', 'Switch IP Address', 'Native VLAN', 'Platform', 'System Name', 'Physical Port']
 
     path = Path('test.csv')
     if path.is_file():
@@ -127,30 +127,26 @@ class Interface:
                 self.vlan_id = self.get_string(line)
 
     def package_data(self):
-        dict = {'Switch Port  ID': self.port_id, 'Mac Address': self.switch_mac, 'Switch IP Address': self.ip_address,'Native VLAN': self.vlan_id, 
+        dict = {'Switch Port ID': self.port_id, 'Mac Address': self.switch_mac, 'Switch IP Address': self.ip_address,'Native VLAN': self.vlan_id, 
         'Platform': self.platform, 'System Name': self.system_name, 'Physical Port': self.physical_port}
         return dict
-
-
-
-   
-
-
-        
-           
-
-
 
 
 # %% 
 def run_program():
     settings = load_settings()
-    int = Interface('ens18', settings)
-    int.get_physical_port()
-    int.get_data(int.name)
-    int.retrieve_data(int.data)
-    p = int.package_data()
-    print(p)
+    interfaces = getInterfaces(settings.macs)
+    int_objs = []
+    for interface in interfaces:
+        int_objs.append(Interface(interface, settings))
+    for int in int_objs:
+        int.get_physical_port()
+
+    for int in int_objs:
+        int.get_data(int.name)
+        int.retrieve_data(int.data)
+        p = int.package_data()
+        write_csv(p)
 
 # %%
 if __name__ == "__main__":
