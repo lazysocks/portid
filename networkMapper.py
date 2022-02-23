@@ -1,9 +1,6 @@
 #!/usr/bin/env python 
 
 # %%
-from asyncore import read, write
-from audioop import add
-from code import interact
 import subprocess as sub
 import re, csv, yaml
 from psutil import Popen
