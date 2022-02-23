@@ -1,6 +1,6 @@
 # networkMapper
 This script will listen on any interface listed by MAC address in the settings.yml file for the Cisco Data Protocol. It will extract the Switch Port ID, MAC Address of 
-connected network device, Native VLAN, Platform, and System Name.  The script will prompt for wall or patch panel port that the network cable is connected to.
+connected network device, Native VLAN, Platform, and System Name.  The script will prompt for wall or patch panel port that the network cable is connected to.  Script will write extracted data to test.csv file.
 
 ## Installation
 Navigate to the project directory once downloaded. Run `pipenv install` to install the necessary modules.
